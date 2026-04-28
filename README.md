@@ -15,4 +15,5 @@ The original research question is how is gender-affirming hormone therapy associ
 This dashboard examines self-harm rates and mental health diagnoses among transgender and cisgender individuals using electronic health record data from the Kaiser Permanente Study of Transition, Outcomes and Gender (STRONG) cohort. The dataset is confidential. The STRONG cohort includes individuals enrolled in four participating Kaiser Permanente health system regions in Georgia, the Mid-Atlantic States, Northern California, and Southern California. The original cohort enrolled (index date) participants from only Georgia, Northern California, and Southern California seeking care between 2006 and 2014 with follow-up through 2016 and the current cohort has index dates through 2022 and follow-up through 2024.
 
 The project is hosted as a shiny app. 
+https://09stei-kirsten-reid.shinyapps.io/final_dashboard/ 
 

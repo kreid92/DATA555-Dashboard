@@ -35,133 +35,96 @@ dt_all <- data %>%
   )
 
 # -----------------------
-# PREP FUNCTION
+# DATASET DESCRIPTION
 # -----------------------
-
-prepare_data <- function(df) {
-  
-  tf_sets <- df %>% filter(tf == 1) %>% pull(matchkey) %>% unique()
-  tm_sets <- df %>% filter(tm == 1) %>% pull(matchkey) %>% unique()
-  
-  df %>%
-    mutate(
-      cohort = case_when(
-        matchkey %in% tf_sets ~ "Transfeminine Cohort",
-        matchkey %in% tm_sets ~ "Transmasculine Cohort",
-        TRUE ~ NA_character_
-      ),
-      GAHT_label = ifelse(GAHT == 1, "GAHT", "No GAHT"),
-      group_label = case_when(
-        subgroup == "TF" ~ "Transfeminine",
-        subgroup == "TM" ~ "Transmasculine",
-        TRUE ~ "Cisgender Controls"
-      ),
-      rate = sh_count_fup / fup_time,
-      log_rate = log10(pmax(rate, 1e-5))
-    ) %>%
-    filter(!is.na(cohort))
-}
-
-# =======================
-# DATASET DESCRIPTION (YOUR TEXT KEPT)
-# =======================
 
 dataset_info <- list(
   title = "Study Overview",
   text = "
-This dashboard examines self-harm rates and mental health diagnoses among transgender and cisgender individuals using electronic health record data from the Kaiser Permanente Study of Transition, Outcomes and Gender (STRONG) cohort. The dataset is confidential. The STRONG cohort includes individuals enrolled in four participating Kaiser Permanente health system regions in Georgia, the Mid-Atlantic States, Northern California, and Southern California. The original cohort enrolled (index date) participants from only Georgia, Northern California, and Southern California seeking care between 2006 and 2014 with follow-up through 2016 and the current cohort has index dates through 2022 and follow-up through 2024.
-")
+This dashboard examines self-harm rates and mental health diagnoses among transgender and cisgender individuals using electronic health record data from the Kaiser Permanente STRONG cohort. 
+The dataset is confidential. 
+The cohort spans four Kaiser Permanente regions and includes longitudinal follow-up through 2024.
+"
+)
 
-# =======================
+# -----------------------
 # UI
-# =======================
+# -----------------------
 
 ui <- fluidPage(
   
-  titlePanel("How is Self-Harm Affected for Transgender Individuals?"),
-
-    mainPanel(
-      
-      tabsetPanel(
+  titlePanel("Self-Harm and Mental Health in Transgender Cohorts"),
+  
+  tabsetPanel(
+    
+    # =======================
+    # TAB 1 - DESCRIPTION
+    # =======================
+    tabPanel(
+      "Dataset Description",
+      fluidPage(
+        h3(dataset_info$title),
+        tags$hr(),
         
-        # -----------------------
-        # TAB 1
-        # -----------------------
-        tabPanel(
-          "Dataset Description",
-          fluidPage(
-            h3(dataset_info$title),
-            tags$hr(),
-            
-            HTML(gsub("\n", "<br>", dataset_info$text)),
-            
-            tags$hr(),
-            
-            p("This dashboard helps identify difference in self-harm and mental health outcomes across transgender and cisgender populations using real-world clinical data. These insights can inform more equitable healthcare delivery, targeted prevention efforts, and improved mental health support."),
-            
-            tags$hr(),
-            
-            p(
-              "Codedocumentation available at: ",
-              tags$a(
-                href = "https://github.com/kreid92/DATA555-Dashboard",
-                target = "_blank",
-                "GitHub Repository"
-              )
+        HTML(gsub("\n", "<br>", dataset_info$text)),
+        
+        tags$hr(),
+        
+        p("This dashboard helps identify difference in self-harm and mental health outcomes across transgender and cisgender populations using real-world clinical data. These insights can inform more equitable healthcare delivery, targeted prevention efforts, and improved mental health support.")
+      )
+    ),
+    
+    # =======================
+    # TAB 2 - MENTAL HEALTH
+    # =======================
+    tabPanel(
+      "Mental Health Diagnoses",
+      
+      sidebarLayout(
+        
+        sidebarPanel(
+          selectInput(
+            "dataset",
+            "Cohort",
+            choices = c("Transmasculine (TM)" = "TM",
+                        "Transfeminine (TF)" = "TF")
+          ),
+          
+          selectInput(
+            "xvar",
+            "Demographic Variable",
+            choices = c(
+              "Age Group" = "age_group",
+              "Study Site" = "site",
+              "Race/Ethnicity" = "raceeth"
             )
           )
         ),
         
-        # -----------------------
-        # TAB 2
-        # -----------------------
-        tabPanel(
-          "Mental Health Diagnoses",
-          
-          sidebarLayout(
-            
-            sidebarPanel(
-              selectInput(
-                "dataset",
-                "Cohort",
-                choices = c("Transmasculine (TM)" = "TM",
-                            "Transfeminine (TF)" = "TF")
-              ),
-              
-              selectInput(
-                "xvar",
-                "Demographic Variable",
-                choices = c(
-                  "Age Group" = "age_group",
-                  "Study Site" = "site",
-                  "Race/Ethnicity" = "raceeth"
-                )
-              )
-            ),
-            
+        mainPanel(
           plotlyOutput("plot2", height = "600px")
-        ),
-        
-        # -----------------------
-        # TAB 3
-        # -----------------------
-        tabPanel(
-          "Self-Harm Rates",
-          plotlyOutput("plot1", height = "600px")
         )
       )
+    ),
+    
+    # =======================
+    # TAB 3 - SELF HARM (RESTORED)
+    # =======================
+    tabPanel(
+      "Self-Harm Rates",
+      plotlyOutput("plot1", height = "600px")
     )
   )
 )
 
-# =======================
+# -----------------------
 # SERVER
-# =======================
+# -----------------------
 
 server <- function(input, output) {
   
   # -----------------------
-  # PLOT 1
+  # PLOT 1 - SELF HARM
   # -----------------------
   
   output$plot1 <- renderPlotly({
@@ -207,14 +170,14 @@ server <- function(input, output) {
       hoverinfo = "text"
     ) %>%
       layout(
-        title = "Self-Harm Rates (incidents/person-year) by Gender-Affirming Hormone Therapy (GAHT) Usage",
+        title = "Self-Harm Rates by GAHT Usage",
         yaxis = list(title = "Log10(Self-harm rate)"),
         xaxis = list(tickangle = -20)
       )
   })
   
   # -----------------------
-  # PLOT 2
+  # PLOT 2 - MENTAL HEALTH
   # -----------------------
   
   output$plot2 <- renderPlotly({
@@ -258,8 +221,8 @@ server <- function(input, output) {
   })
 }
 
-# =======================
+# -----------------------
 # RUN APP
-# =======================
+# -----------------------
 
 shinyApp(ui, server)
