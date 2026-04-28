@@ -35,34 +35,6 @@ dt_all <- data %>%
   )
 
 # -----------------------
-# 🔥 PRE-AGGREGATION (CRITICAL FIX)
-# -----------------------
-
-sui_prepped <- sui_count_demo %>%
-  filter(!is.na(studyid), !is.na(fup_time), fup_time > 0) %>%
-  mutate(
-    cohort = case_when(
-      tf == 1 ~ "Transfeminine Cohort",
-      tm == 1 ~ "Transmasculine Cohort",
-      TRUE ~ NA_character_
-    ),
-    GAHT_label = ifelse(GAHT == 1, "GAHT", "No GAHT"),
-    group_label = case_when(
-      tf == 1 ~ "Transfeminine",
-      tm == 1 ~ "Transmasculine",
-      TRUE ~ "Cisgender Controls"
-    ),
-    rate = sh_count_fup / fup_time,
-    log_rate = log10(pmax(rate, 1e-5)),
-    x_group = paste(cohort, GAHT_label, sep = " - ")
-  ) %>%
-  filter(!is.na(cohort))
-
-# optional safety: reduce plotting load
-sui_plot_data <- sui_prepped %>%
-  sample_n(min(n(), 50000))  # prevents server crash
-
-# -----------------------
 # DATASET DESCRIPTION
 # -----------------------
 
@@ -82,13 +54,17 @@ ui <- fluidPage(
   
   tabsetPanel(
     
-    # TAB 1
+    # =======================
+    # TAB 1 - DESCRIPTION
+    # =======================
     tabPanel(
       "Dataset Description",
       fluidPage(
         h3(dataset_info$title),
         tags$hr(),
+        
         HTML(gsub("\n", "<br>", dataset_info$text)),
+        
         tags$hr(),
         
         p("This dashboard helps identify difference in self-harm and mental health outcomes across transgender and cisgender populations using real-world clinical data. These insights can inform more equitable healthcare delivery, targeted prevention efforts, and improved mental health support."),
@@ -106,11 +82,14 @@ ui <- fluidPage(
       )
     ),
     
-    # TAB 2
+    # =======================
+    # TAB 2 - MENTAL HEALTH
+    # =======================
     tabPanel(
       "Mental Health Diagnoses",
       
       sidebarLayout(
+        
         sidebarPanel(
           selectInput(
             "dataset",
@@ -136,7 +115,9 @@ ui <- fluidPage(
       )
     ),
     
-    # TAB 3
+    # =======================
+    # TAB 3 - SELF HARM
+    # =======================
     tabPanel(
       "Self-Harm Rates",
       plotlyOutput("plot1", height = "600px")
@@ -150,36 +131,65 @@ ui <- fluidPage(
 
 server <- function(input, output) {
   
-  # -----------------------
-  # PLOT 1 (FIXED + SAFE)
-  # -----------------------
+  # =======================
+  # PLOT 1 - SELF HARM (FIXED INCIDENCE RATE)
+  # =======================
   
   output$plot1 <- renderPlotly({
     
-    d <- sui_plot_data
+    base_data <- sui_count_demo %>%
+      filter(!is.na(studyid), !is.na(fup_time), fup_time > 0)
     
-    validate(need(nrow(d) > 0, "No data available"))
+    df_summary <- base_data %>%
+      mutate(
+        
+        group = case_when(
+          tf == 1 ~ "Transfeminine",
+          tm == 1 ~ "Transmasculine",
+          subgroup == "CF" ~ "Cisfeminine",
+          subgroup == "CM" ~ "Cismasculine",
+          TRUE ~ NA_character_
+        ),
+        
+        GAHT_label = ifelse(GAHT == 1, "GAHT", "No GAHT")
+      ) %>%
+      filter(!is.na(group)) %>%
+      
+      group_by(group, GAHT_label) %>%
+      summarise(
+        total_events = sum(sh_count_fup, na.rm = TRUE),
+        total_py = sum(fup_time, na.rm = TRUE),
+        rate = total_events / total_py,
+        .groups = "drop"
+      )
     
     plot_ly(
-      d,
-      x = ~x_group,
-      y = ~log_rate,
-      color = ~group_label,
-      type = "box",
-      boxpoints = FALSE,   # 🔥 CRITICAL FIX (prevents crash)
-      jitter = 0.2,
-      pointpos = 0
+      df_summary,
+      x = ~group,
+      y = ~rate,
+      color = ~GAHT_label,
+      type = "bar",
+      barmode = "group",
+      text = ~paste0(
+        "Group: ", group,
+        "<br>GAHT: ", GAHT_label,
+        "<br>Events: ", total_events,
+        "<br>Person-years: ", round(total_py, 2),
+        "<br>Rate: ", round(rate, 4), " per person-year"
+      ),
+      hoverinfo = "text"
     ) %>%
       layout(
-        title = "Self-Harm Rates by GAHT Usage",
-        yaxis = list(title = "Log10(Self-harm rate)"),
-        xaxis = list(tickangle = -20)
+        title = "Self-Harm Incidence Rates (Events per Person-Year)",
+        xaxis = list(title = "Subgroup"),
+        yaxis = list(title = "Incidents per Person-Year"),
+        barmode = "group"
       )
   })
   
-  # -----------------------
-  # PLOT 2 (UNCHANGED BUT SAFE)
-  # -----------------------
+  # =======================
+  # PLOT 2 - MENTAL HEALTH
+  # =======================
   
   output$plot2 <- renderPlotly({
     
@@ -200,7 +210,13 @@ server <- function(input, output) {
       x = ~x_var,
       y = ~dx,
       color = ~subgroup,
-      type = "bar"
+      type = "bar",
+      text = ~paste(
+        subgroup,
+        "<br>", x_var,
+        "<br>Mean:", round(dx, 2)
+      ),
+      hoverinfo = "text"
     ) %>%
       layout(
         title = paste0(
@@ -210,14 +226,14 @@ server <- function(input, output) {
           x_label
         ),
         barmode = "group",
-        xaxis = list(title = x_label),
+        xaxis = list(title = x_label, tickangle = -30),
         yaxis = list(title = "Mean Mental Health Diagnoses")
       )
   })
 }
 
 # -----------------------
-# RUN
+# RUN APP
 # -----------------------
 
 shinyApp(ui, server)
