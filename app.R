@@ -39,12 +39,9 @@ dt_all <- data %>%
 # -----------------------
 
 dataset_info <- list(
-  title = "Study Overview",
+  title = "Dataset Overview",
   text = "
-This dashboard examines self-harm rates and mental health diagnoses among transgender and cisgender individuals using electronic health record data from the Kaiser Permanente STRONG cohort. 
-The dataset is confidential. 
-The cohort spans four Kaiser Permanente regions and includes longitudinal follow-up through 2024.
-"
+This dashboard examines self-harm rates and mental health diagnoses among transgender and cisgender individuals using electronic health record data from the Kaiser Permanente Study of Transition, Outcomes and Gender (STRONG) cohort. The dataset is confidential. The STRONG cohort includes individuals enrolled in four participating Kaiser Permanente health system regions in Georgia, the Mid-Atlantic States, Northern California, and Southern California. The original cohort enrolled (index date) participants from only Georgia, Northern California, and Southern California seeking care between 2006 and 2014 with follow-up through 2016 and the current cohort has index dates through 2022 and follow-up through 2024."
 )
 
 # -----------------------
@@ -53,13 +50,13 @@ The cohort spans four Kaiser Permanente regions and includes longitudinal follow
 
 ui <- fluidPage(
   
-  titlePanel("Self-Harm and Mental Health in Transgender Cohorts"),
+  titlePanel("How is Self-Harm Affected for Transgender Individuals?"),
   
   tabsetPanel(
     
-    # =======================
+    # -------------------
     # TAB 1 - DESCRIPTION
-    # =======================
+    # -------------------
     tabPanel(
       "Dataset Description",
       fluidPage(
@@ -70,13 +67,24 @@ ui <- fluidPage(
         
         tags$hr(),
         
-        p("This dashboard helps identify difference in self-harm and mental health outcomes across transgender and cisgender populations using real-world clinical data. These insights can inform more equitable healthcare delivery, targeted prevention efforts, and improved mental health support.")
+        p("This dashboard helps identify difference in self-harm and mental health outcomes across transgender and cisgender populations using real-world clinical data. These insights can inform more equitable healthcare delivery, targeted prevention efforts, and improved mental health support."),
+        
+        tags$hr(),
+        
+        p(
+          "Code documentation available at: ",
+          tags$a(
+            href = "https://github.com/kreid92/DATA555-Dashboard",
+            target = "_blank",
+            "GitHub Repository"
+          )
+        )
       )
     ),
     
-    # =======================
+    # -------------------
     # TAB 2 - MENTAL HEALTH
-    # =======================
+    # -------------------
     tabPanel(
       "Mental Health Diagnoses",
       
@@ -107,9 +115,9 @@ ui <- fluidPage(
       )
     ),
     
-    # =======================
-    # TAB 3 - SELF HARM (RESTORED)
-    # =======================
+    # -------------------
+    # TAB 3 - SELF HARM
+    # -------------------
     tabPanel(
       "Self-Harm Rates",
       plotlyOutput("plot1", height = "600px")
@@ -124,34 +132,47 @@ ui <- fluidPage(
 server <- function(input, output) {
   
   # -----------------------
-  # PLOT 1 - SELF HARM
+  # PLOT 1 - SELF HARM (FIXED)
   # -----------------------
   
   output$plot1 <- renderPlotly({
     
-    base_data <- sui_count_demo %>%
-      filter(!is.na(studyid), fup_time > 0)
+    req(sui_count_demo)
     
-    tf_sets <- base_data %>% filter(tf == 1) %>% pull(matchkey)
-    tm_sets <- base_data %>% filter(tm == 1) %>% pull(matchkey)
-    
-    df <- base_data %>%
+    df <- sui_count_demo %>%
+      filter(!is.na(studyid), !is.na(fup_time), fup_time > 0) %>%
       mutate(
+        
         cohort = case_when(
-          matchkey %in% tf_sets ~ "Transfeminine Cohort",
-          matchkey %in% tm_sets ~ "Transmasculine Cohort"
-        ),
-        GAHT_label = ifelse(GAHT == 1, "GAHT", "No GAHT"),
-        group_label = case_when(
-          subgroup == "TF" ~ "Transfeminine",
-          subgroup == "TM" ~ "Transmasculine",
+          tf == 1 ~ "Transfeminine Cohort",
+          tm == 1 ~ "Transmasculine Cohort",
           TRUE ~ "Cisgender Controls"
         ),
+        
+        GAHT_label = ifelse(GAHT == 1, "GAHT", "No GAHT"),
+        
+        group_label = case_when(
+          tf == 1 ~ "Transfeminine",
+          tm == 1 ~ "Transmasculine",
+          TRUE ~ "Cisgender Controls"
+        ),
+        
         rate = sh_count_fup / fup_time,
+        rate = ifelse(is.infinite(rate) | is.nan(rate), NA_real_, rate),
+        
         log_rate = log10(pmax(rate, 1e-5)),
+        
         x_group = paste(cohort, GAHT_label, sep = " - ")
       ) %>%
-      filter(!is.na(cohort))
+      filter(
+        !is.na(rate),
+        !is.na(log_rate),
+        !is.na(x_group)
+      )
+    
+    validate(
+      need(nrow(df) > 10, "Not enough data to display plot")
+    )
     
     plot_ly(
       df,
@@ -162,20 +183,20 @@ server <- function(input, output) {
       boxpoints = "all",
       jitter = 0.25,
       pointpos = 0,
-      text = ~paste(
-        "Cohort:", cohort,
-        "<br>Group:", group_label,
-        "<br>Rate:", round(rate, 2)
+      text = ~paste0(
+        "Cohort: ", cohort,
+        "<br>Group: ", group_label,
+        "<br>GAHT: ", GAHT_label,
+        "<br>Rate: ", round(rate, 3)
       ),
       hoverinfo = "text"
     ) %>%
       layout(
-        title = "Self-Harm Rates by GAHT Usage",
-        yaxis = list(title = "Log10(Self-harm rate)"),
-        xaxis = list(tickangle = -20)
+        title = "Self-Harm Rates by GAHT (Matched Cohorts)",
+        xaxis = list(tickangle = -20),
+        yaxis = list(title = "Log10(Self-harm rate)")
       )
   })
-  
   # -----------------------
   # PLOT 2 - MENTAL HEALTH
   # -----------------------
