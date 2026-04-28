@@ -78,29 +78,8 @@ This dashboard examines self-harm rates and mental health diagnoses among transg
 
 ui <- fluidPage(
   
-  titlePanel("Self-Harm and Mental Health in Transgender Cohorts"),
-  
-  sidebarLayout(
-    
-    sidebarPanel(
-      selectInput(
-        "dataset",
-        "Cohort",
-        choices = c("Transmasculine (TM)" = "TM",
-                    "Transfeminine (TF)" = "TF")
-      ),
-      
-      selectInput(
-        "xvar",
-        "Demographic Variable",
-        choices = c(
-          "Age Group" = "age_group",
-          "Study Site" = "site",
-          "Race/Ethnicity" = "raceeth"
-        )
-      )
-    ),
-    
+  titlePanel("How is Self-Harm Affected for Transgender Individuals?"),
+
     mainPanel(
       
       tabsetPanel(
@@ -118,7 +97,18 @@ ui <- fluidPage(
             
             tags$hr(),
             
-            p("This dashboard helps identify difference in self-harm and mental health outcomes across transgender and cisgender populations using real-world clinical data. These insights can inform more equitable healthcare delivery, targeted prevention efforts, and improved mental health support.")
+            p("This dashboard helps identify difference in self-harm and mental health outcomes across transgender and cisgender populations using real-world clinical data. These insights can inform more equitable healthcare delivery, targeted prevention efforts, and improved mental health support."),
+            
+            tags$hr(),
+            
+            p(
+              "Codedocumentation available at: ",
+              tags$a(
+                href = "https://github.com/kreid92/DATA555-Dashboard",
+                target = "_blank",
+                "GitHub Repository"
+              )
+            )
           )
         ),
         
@@ -127,6 +117,28 @@ ui <- fluidPage(
         # -----------------------
         tabPanel(
           "Mental Health Diagnoses",
+          
+          sidebarLayout(
+            
+            sidebarPanel(
+              selectInput(
+                "dataset",
+                "Cohort",
+                choices = c("Transmasculine (TM)" = "TM",
+                            "Transfeminine (TF)" = "TF")
+              ),
+              
+              selectInput(
+                "xvar",
+                "Demographic Variable",
+                choices = c(
+                  "Age Group" = "age_group",
+                  "Study Site" = "site",
+                  "Race/Ethnicity" = "raceeth"
+                )
+              )
+            ),
+            
           plotlyOutput("plot2", height = "600px")
         ),
         
